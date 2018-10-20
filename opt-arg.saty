@@ -1,0 +1,19 @@
+@require: stdja
+
+let-inline ctx \sugoi ?:prefix s =
+  let p = match prefix with
+    | None -> `すごい`
+    | Some(p) -> p
+  in
+  read-inline ctx (embed-string (p ^ s))
+in
+
+document (|
+  author = { Seiei MIYAGI };
+  show-title = true;
+  show-toc = false;
+  title = { SATySFiでoptional }
+|) '<
+ +p { \sugoi(`ねむい`); }
+ +p { \sugoi?:(`やばい`)(`ねむい`); }
+>
