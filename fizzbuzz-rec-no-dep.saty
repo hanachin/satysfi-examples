@@ -1,0 +1,37 @@
+let-inline ctx \fizzbuzz m = script-guard Latin (embed-math ctx m) in
+
+let ctx = get-initial-context 440pt (command \fizzbuzz) in
+
+let fizzbuzz-str n =
+  match ((n mod 3), (n mod 5)) with
+    | (0, 0) -> `FizzBuzz`
+    | (0, _) -> `Fizz`
+    | (_, 0) -> `Buzz`
+    | _      -> arabic n
+in
+
+let fizzbuzz-line n = line-break true true ctx (read-inline ctx (embed-string (fizzbuzz-str n))) in
+
+let fizzbuzz n upto =
+  let-rec iter i acc =
+    if i == upto then
+      acc +++ fizzbuzz-line i
+    else
+      iter (i + 1) (acc +++ (fizzbuzz-line i))
+  in
+  iter 1 block-nil
+in
+
+page-break
+  A4Paper
+  (fun pbinfo -> (|
+    text-height = 842pt;
+    text-origin = (0pt, 0pt);
+  |))
+  (fun (pbinfo) -> (|
+    header-content = block-nil;
+    header-origin = (0pt, 0pt);
+    footer-content = block-nil;
+    footer-origin = (0pt, 0pt);
+  |))
+  (fizzbuzz 1 100)
