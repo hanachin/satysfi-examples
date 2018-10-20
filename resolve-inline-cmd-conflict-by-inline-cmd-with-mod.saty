@@ -1,0 +1,35 @@
+@require: stdja
+
+module Japanese : sig
+  direct \greeting : [] inline-cmd
+end = struct
+  let-inline ctx \greeting = read-inline ctx {こんにちは}
+end
+
+module English : sig
+  direct \greeting : [] inline-cmd
+end = struct
+  let-inline ctx \greeting = read-inline ctx {Hi}
+end
+
+in
+
+document (|
+  title = {SATySFiのモジュールのdirectで宣言したinline-cmdの名前が被ったときの対処法};
+  author = {Seiei MIYAGI};
+  show-title = true;
+  show-toc = false;
+|) '<
+
+  +p { 後勝ちだがモジュール名を含めて参照すれば使える }
+
+  +section{\\greeting}<
+    +p { \greeting; }
+  >
+  +section{\\Japanese.greeting}<
+    +p { \Japanese.greeting; }
+  >
+  +section{\\English.greeting}<
+    +p { \English.greeting; }
+  >
+>
