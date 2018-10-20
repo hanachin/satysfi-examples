@@ -1,0 +1,30 @@
+@require: stdja
+
+let-mutable count <- 0
+
+let-inline \counter =
+  let c = !count in
+  % let () = count <- !count + 1 in
+  (fun () -> count <- !count + 1)
+  embed-string (arabic c)
+in
+
+document (|
+  author = { Seiei MIYAGI };
+  show-title = true;
+  show-toc = false;
+  title = { SATySFiで可変な変数を使う }
+|) '<
+ +p {
+   \counter;
+   \counter;
+   \counter;
+   \counter;
+   \counter;
+   \counter;
+   \counter;
+   \counter;
+   \counter;
+   \counter;
+ }
+>
