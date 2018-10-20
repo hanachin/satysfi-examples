@@ -1,0 +1,19 @@
+@require: stdja
+
+let-inline ctx \sugoi s =
+  let s = match s with
+    | None -> `すごい`
+    | Some(s) -> s
+  in
+  read-inline ctx (embed-string s)
+in
+
+document (|
+  author = { Seiei MIYAGI };
+  show-title = true;
+  show-toc = false;
+  title = { SATySFiでoptional }
+|) '<
+ +p { \sugoi(None); }
+ +p { \sugoi(Some(`すごくない`)); }
+>
