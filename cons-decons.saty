@@ -1,0 +1,32 @@
+@require: stdja
+
+let-inline ctx \unwrap joint =
+  match joint with
+    % matchで分割できる
+    | weed :: paper :: [] -> read-inline ctx (embed-string (weed ^ `と` ^ paper))
+    | _ -> read-inline ctx (embed-string `ここに到達することはない`)
+
+let-inline ctx \smoke joint =
+  % letでも分割できる
+  let (weed :: paper :: []) = joint in
+  read-inline ctx (embed-string (`火のついた` ^ weed ^ `と` ^ paper))
+in
+
+document (|
+  author = { Seiei MIYAGI };
+  show-title = true;
+  show-toc = false;
+  title = { SATySFiでリストを書く・連結する・分割する }
+|) '<
+  +p {
+    % 角括弧の中に要素を書く、各要素は;で区切る
+    \unwrap([`草`; `紙`]);
+    は
+    % ::を使うとリストに要素を連結できる、[]は空リスト
+    \unwrap(`草` :: `紙` :: []);
+    と同じ
+  }
+  +p {
+    \smoke([`草`; `紙`]);
+  }
+>
