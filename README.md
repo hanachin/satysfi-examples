@@ -4,7 +4,7 @@
 
   $ git clone https://github.com/hanachin/satysfi-examples.git
   $ cd satysfi-examples
-  $ satysfi kansuji.saty
+  $ make
 
 ## As a packages
 
