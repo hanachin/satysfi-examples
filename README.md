@@ -2,9 +2,9 @@
 
 ## As a examples
 
-  $ git clone https://github.com/hanachin/satysfi-examples.git
-  $ cd satysfi-examples
-  $ make
+    $ git clone https://github.com/hanachin/satysfi-examples.git
+    $ cd satysfi-examples
+    $ make
 
 ## As a packages
 
