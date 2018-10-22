@@ -4,8 +4,7 @@ let-mutable count <- 0
 
 let-inline \counter =
   let c = !count in
-  % let () = count <- !count + 1 in
-  (fun () -> count <- !count + 1)
+  let () = count <- !count + 1 in
   embed-string (arabic c)
 in
 
