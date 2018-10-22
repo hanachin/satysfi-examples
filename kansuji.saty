@@ -1,0 +1,98 @@
+@require: stdja
+@require: list
+
+module Kansuji : sig
+  direct \kansujichar0 : [inline-text] inline-cmd
+  direct \kansujichar1 : [inline-text] inline-cmd
+  direct \kansujichar2 : [inline-text] inline-cmd
+  direct \kansujichar3 : [inline-text] inline-cmd
+  direct \kansujichar4 : [inline-text] inline-cmd
+  direct \kansujichar5 : [inline-text] inline-cmd
+  direct \kansujichar6 : [inline-text] inline-cmd
+  direct \kansujichar7 : [inline-text] inline-cmd
+  direct \kansujichar8 : [inline-text] inline-cmd
+  direct \kansujichar9 : [inline-text] inline-cmd
+  direct \kansuji : [int] inline-cmd
+end = struct
+  let-mutable kansujichar0 <- {〇}
+  let-mutable kansujichar1 <- {一}
+  let-mutable kansujichar2 <- {二}
+  let-mutable kansujichar3 <- {三}
+  let-mutable kansujichar4 <- {四}
+  let-mutable kansujichar5 <- {五}
+  let-mutable kansujichar6 <- {六}
+  let-mutable kansujichar7 <- {七}
+  let-mutable kansujichar8 <- {八}
+  let-mutable kansujichar9 <- {九}
+
+  let-inline ctx \kansujichar0 inner = let () = kansujichar0 <- inner in inline-nil
+  let-inline ctx \kansujichar1 inner = let () = kansujichar1 <- inner in inline-nil
+  let-inline ctx \kansujichar2 inner = let () = kansujichar2 <- inner in inline-nil
+  let-inline ctx \kansujichar3 inner = let () = kansujichar3 <- inner in inline-nil
+  let-inline ctx \kansujichar4 inner = let () = kansujichar4 <- inner in inline-nil
+  let-inline ctx \kansujichar5 inner = let () = kansujichar5 <- inner in inline-nil
+  let-inline ctx \kansujichar6 inner = let () = kansujichar6 <- inner in inline-nil
+  let-inline ctx \kansujichar7 inner = let () = kansujichar7 <- inner in inline-nil
+  let-inline ctx \kansujichar8 inner = let () = kansujichar8 <- inner in inline-nil
+  let-inline ctx \kansujichar9 inner = let () = kansujichar9 <- inner in inline-nil
+
+  let range s e =
+    let-rec r n = if n > e then [] else n :: (r (n + 1)) in
+    if e == s then
+      [s]
+    else if e < s then
+      []
+    else
+      r s
+
+  let split-into-chars s =
+    let len = string-length s in
+    (range 0 (len - 1)) |> List.map (fun i -> string-sub s i 1)
+
+  let to-inline-text c =
+    match c with
+    | `0` -> !kansujichar0
+    | `1` -> !kansujichar1
+    | `2` -> !kansujichar2
+    | `3` -> !kansujichar3
+    | `4` -> !kansujichar4
+    | `5` -> !kansujichar5
+    | `6` -> !kansujichar6
+    | `7` -> !kansujichar7
+    | `8` -> !kansujichar8
+    | `9` -> !kansujichar9
+    |  _  -> {謎}
+
+  let-inline ctx \kansuji x =
+    (split-into-chars (arabic x)) |> List.fold-left (fun acc c ->
+      acc ++ (read-inline ctx (to-inline-text c))
+    ) inline-nil
+end
+
+let-inline ctx \kansujiconfig inner = let _ = read-inline ctx inner in inline-nil
+
+in
+
+document (|
+  author = { Seiei MIYAGI };
+  show-title = true;
+  show-toc = false;
+  title = { SATySFiで漢数字 }
+|) '<
+ +p {
+   \kansuji(1234567890);
+   \kansujiconfig {
+     \kansujichar0{れい}
+     \kansujichar1{いち}
+     \kansujichar2{に}
+     \kansujichar3{さん}
+     \kansujichar4{し}
+     \kansujichar5{ご}
+     \kansujichar6{ろく}
+     \kansujichar7{しち}
+     \kansujichar8{はち}
+     \kansujichar9{く}
+   }
+   \kansuji(1234567890);
+ }
+>
