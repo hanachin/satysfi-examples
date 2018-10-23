@@ -1,0 +1,14 @@
+module Sequence : sig
+  val seq-int : int -> int -> int list
+end = struct
+  let-rec seq-int s e =
+    let-rec r n = if n > e then [] else n :: (r (n + 1)) in
+    if e == s then
+      [s]
+    else if e < s then
+      []
+    else
+      r s
+end
+
+let seq-int = Sequence.seq-int
