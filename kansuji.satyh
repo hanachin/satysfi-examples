@@ -1,4 +1,5 @@
 @require: list
+@import: sequence
 
 module Kansuji : sig
   direct \kansujichar0 : [inline-text] inline-cmd
@@ -35,18 +36,9 @@ end = struct
   let-inline \kansujichar8 inner = let () = kansujichar8 <- inner in {}
   let-inline \kansujichar9 inner = let () = kansujichar9 <- inner in {}
 
-  let range s e =
-    let-rec r n = if n > e then [] else n :: (r (n + 1)) in
-    if e == s then
-      [s]
-    else if e < s then
-      []
-    else
-      r s
-
   let split-into-chars s =
     let len = string-length s in
-    (range 0 (len - 1)) |> List.map (fun i -> string-sub s i 1)
+    (seq-int 0 (len - 1)) |> List.map (fun i -> string-sub s i 1)
 
   let to-inline-text c =
     match c with
