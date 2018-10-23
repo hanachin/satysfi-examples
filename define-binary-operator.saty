@@ -1,0 +1,20 @@
+@require: stdja
+@require: list
+
+let ( >> ) x lst = x :: lst
+
+let-inline \dump lst =
+  let d = lst |> List.fold-left (fun acc n -> acc ^ (arabic n) ^ `;`) ` ` in
+  embed-string (`[` ^ (string-sub d 0 ((string-length d) - 1)) ^ `]`)
+in
+
+document (|
+  author = { Seiei MIYAGI };
+  show-title = true;
+  show-toc = false;
+  title = { SATySFiで演算子定義 }
+|) '<
+  +p {
+    \dump(1 >> 2 >> 3 >> []);
+  }
+>

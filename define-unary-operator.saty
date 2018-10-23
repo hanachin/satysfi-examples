@@ -1,0 +1,14 @@
+@require: stdja
+
+let ( !>^..^< ) s = {\>^..^\< .o( #s;にゃん )}
+let message = !>^..^< { ねむ }
+in
+
+document (|
+  author = { Seiei MIYAGI };
+  show-title = true;
+  show-toc = false;
+  title = { SATySFiで演算子定義 }
+|) '<
+  +p { #message; }
+>
