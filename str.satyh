@@ -1,0 +1,12 @@
+module Str : sig
+  val string-start-with-p : string -> string -> bool
+end = struct
+  let string-start-with-p s p =
+    let s-len = (string-length s) in
+    let p-len = (string-length p) in
+    match s-len >= p-len with
+      | true -> (string-same (string-sub s 0 p-len) p)
+      | false -> false
+end
+
+let string-start-with-p = Str.string-start-with-p
