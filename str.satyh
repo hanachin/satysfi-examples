@@ -1,5 +1,8 @@
+@import: sequence
+
 module Str : sig
   val string-start-with-p : string -> string -> bool
+  val split-into-chars : string -> string list
 end = struct
   let string-start-with-p s p =
     let s-len = (string-length s) in
@@ -7,6 +10,11 @@ end = struct
     match s-len >= p-len with
       | true -> (string-same (string-sub s 0 p-len) p)
       | false -> false
+
+  let split-into-chars s =
+    let len = string-length s in
+    (seq-int 0 (len - 1)) |> List.map (fun i -> string-sub s i 1)
 end
 
 let string-start-with-p = Str.string-start-with-p
+let split-into-chars = Str.split-into-chars
