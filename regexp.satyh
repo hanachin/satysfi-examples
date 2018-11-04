@@ -1,0 +1,149 @@
+@require: list
+@require: option
+@require: hanachin/str
+
+module Regexp : sig
+  type token
+  type node
+  type bytecode
+  val lex : string -> token list
+  val parse : token list -> node
+  val compile : node -> bytecode list
+  val exec : bytecode list -> string -> ((int * string) list) option
+  val from : string -> (string -> ((int * string) list) option)
+end = struct
+  type token =
+    | T-char of string
+
+  type node =
+    | N-cat of node * node
+    | N-dot
+    | N-empty
+    | N-lit of string
+    | N-ng-star of node
+    | N-paren of int * node
+
+  type bytecode =
+    | O-any
+    | O-char of string
+    | O-jump of int
+    | O-match
+    | O-not-match
+    | O-split of int * int
+    | O-subend of int
+    | O-substart of int
+
+  let lex s =
+    let-rec inner
+      | [] = []
+      | (c :: cs) = T-char(c) :: inner cs
+    in
+    inner (split-into-chars s)
+
+  let parse tokens =
+    let-rec inner
+      | ((T-char(c)) :: []) = N-lit(c)
+      | ((T-char(c)) :: tokens) = N-cat(N-lit(c), (inner tokens))
+      | [] = N-empty
+    in
+    let root = inner tokens in
+    N-cat(N-ng-star(N-dot), N-paren(0, root))
+
+  let inspect-ast root =
+    let-rec inner a n =
+      match n with
+      | N-cat(t1, t2) -> a ^ `N-cat(` ^ (inner ` ` t1) ^ `, ` ^ (inner ` ` t2) ^ `)`
+      | N-dot -> a ^ `N-dot`
+      | N-empty -> a ^ `N-empty`
+      | N-lit(c) -> a ^ `N-lit(` ^ c ^ `)`
+      | N-ng-star(t) -> a ^ `N-ng-star(` ^ (inner ` ` t) ^ `)`
+      | N-paren(n, t) -> a ^ `N-paren(` ^ (arabic n) ^ `,` ^ (inner ` ` t) ^ `)`
+    in
+    inner ` ` root
+
+  let compile ast =
+    let-rec inner t bytecodes =
+      match t with
+      | N-cat(l, r) -> List.concat [bytecodes; (inner l []); (inner r [])]
+      | N-dot -> List.append bytecodes [O-any]
+      | N-empty -> List.append bytecodes []
+      | N-lit(c) -> List.append bytecodes [O-char(c)]
+      | N-ng-star(t) -> (
+          let bs = (inner t []) in
+          List.concat [bytecodes; [O-split(List.length(bs) + 2, 1)]; bs; [O-jump(-List.length(bs) - 1)]]
+        )
+      | N-paren(n, t) -> List.concat [bytecodes; [O-substart(n)]; (inner t []); [O-subend(n)]]
+    in
+    List.append (inner ast []) [O-match]
+
+  let exec bytecodes str =
+    let-rec set-sub-start
+      | n cn [] = (n, cn, -1) :: []
+      | n cn ((n2, s, e) :: xs) =
+        if n == n2 then (n, cn, -1) :: xs
+        else (n2, s, e) :: (set-sub-start n cn xs)
+    in
+
+    let-rec set-sub-end
+      | n cn [] = (n, -1, cn) :: []
+      | n cn ((n2, s, e) :: xs) =
+        if n == n2 then ((n, s, cn) :: xs)
+        else ((n2, s, e) :: (set-sub-end n cn xs))
+    in
+
+    let substring-assoc str assoc =
+      assoc |> List.map (fun (n, s, e) -> (n, (string-sub str s (e - s))))
+    in
+
+    let-rec inner bytecodes bn cs cn assoc =
+      let b = Option.from O-not-match (List.nth bn bytecodes) in
+      match b with
+      | O-any -> (
+          if (List.length cs) <= cn then None
+          else (inner bytecodes (bn + 1) cs (cn + 1) assoc)
+        )
+      | O-char(c) -> (
+          match (List.nth cn cs) with
+          | Some(c2) ->
+            if (string-same c c2) then (inner bytecodes (bn + 1) cs (cn + 1) assoc)
+            else None
+          | None -> None
+        )
+      | O-jump(bn-offset) -> (inner bytecodes (bn + bn-offset) cs cn assoc)
+      | O-match -> Some((substring-assoc str assoc))
+      | O-not-match -> None
+      | O-split(bn-offset1, bn-offset2) -> (
+          match (inner bytecodes (bn + bn-offset1) cs cn assoc) with
+          | None -> (inner bytecodes (bn + bn-offset2) cs cn assoc)
+          | Some(x) -> Some(x)
+          )
+      | O-subend(n) -> (inner bytecodes (bn + 1) cs cn (set-sub-end n cn assoc))
+      | O-substart(n) -> (inner bytecodes (bn + 1) cs cn (set-sub-start n cn assoc))
+    in
+    inner bytecodes 0 (split-into-chars str) 0 []
+
+  let inspect-bytecodes bytecodes =
+    let-rec inner a bs =
+      match bs with
+      | (O-any) :: rest -> inner (a ^ `O-any; `) rest
+      | (O-char(c)) :: rest -> inner (a ^ `O-char(` ^ c ^ `); `) rest
+      | (O-match) :: rest -> inner (a ^ `O-match; `) rest
+      | (O-not-match) :: rest -> inner (a ^ `O-not-match; `) rest
+      | (O-jump(n)) :: rest -> inner (a ^ `O-jump(` ^ (arabic n) ^ `); `) rest
+      | (O-split(n, m)) :: rest -> inner (a ^ `O-split(` ^ (arabic n) ^ `, ` ^ (arabic m) ^ `); `) rest
+      | (O-subend(m)) :: rest -> inner (a ^ `O-subend(` ^ (arabic m) ^ `); `) rest
+      | (O-substart(n)) :: rest -> inner (a ^ `O-substart(` ^ (arabic n) ^ `); `) rest
+      | [] -> a
+    in
+    inner ` ` bytecodes
+
+  let from r =
+    let tokens = lex r in
+    let root = parse tokens in
+    let bytecodes = compile root in
+    (fun s2 -> (
+      % Some([(0, (inspect-ast root))])
+      % Some([(0, (inspect-bytecodes bytecodes))])
+      (exec bytecodes s2)
+    ))
+end
