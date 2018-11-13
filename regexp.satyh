@@ -84,6 +84,25 @@ end = struct
       fun tn tokens -> inner fns [] tn tokens
     in
 
+    let map token node =
+      let s-of token =
+        match token with
+        | T-alt -> `T-alt`
+        | T-char(c) -> `T-char(` ^ c ^`)`
+        | T-dot -> `T-dot`
+        | T-lparen -> `T-lparen`
+        | T-rparen -> `T-rparen`
+      in
+
+      fun tn tokens -> (
+        match List.nth tn tokens with
+        | Some(t) ->
+          if (string-same (s-of t) (s-of token)) then Some(tn + 1, node)
+          else None
+        | _ -> None
+      )
+    in
+
     let default = (fun tn tokens -> None) in
     let-mutable n <- 0 in
     let-mutable cat <- default in
@@ -108,26 +127,9 @@ end = struct
     ))
     in
 
-    let () = dot <- (fun tn tokens -> (
-      match List.nth tn tokens with
-      | Some(T-dot) -> Some(tn + 1, N-dot)
-      | _ -> None
-    ))
-    in
-
-    let () = lparen <- (fun tn tokens -> (
-      match List.nth tn tokens with
-      | Some(T-lparen) -> Some(tn + 1, N-empty)
-      | _ -> None
-    ))
-    in
-
-    let () = rparen <- (fun tn tokens -> (
-      match List.nth tn tokens with
-      | Some(T-rparen) -> Some(tn + 1, N-empty)
-      | _ -> None
-    ))
-    in
+    let () = dot <- map T-dot N-dot in
+    let () = lparen <- map T-lparen N-empty in
+    let () = rparen <- map T-rparen N-empty in
 
     let () = paren <- (fun tn tokens -> (
       match (seq [lparen; cat; rparen]) tn tokens with
