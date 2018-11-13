@@ -14,6 +14,7 @@ module Regexp : sig
 end = struct
   type token =
     | T-char of string
+    | T-dot
     | T-lparen
     | T-rparen
 
@@ -24,6 +25,7 @@ end = struct
     | N-lit of string
     | N-ng-star of node
     | N-paren of int * node
+    | N-parse-failed
 
   type bytecode =
     | O-any
@@ -40,9 +42,113 @@ end = struct
       | [] = []
       | (`(` :: cs) = T-lparen :: inner cs
       | (`)` :: cs) = T-rparen :: inner cs
+      | (`.` :: cs) = T-dot :: inner cs
       | (c :: cs) = T-char(c) :: inner cs
     in
     inner (split-into-chars s)
+
+  let parse2 tokens =
+    let choice fns =
+      let-rec inner
+        | [] tn tokens = None
+        | (fn :: fns) tn tokens = (
+          match !fn tn tokens with
+          | Some(tn, ret) -> Some(tn, ret)
+          | None -> inner fns tn tokens
+        )
+      in
+
+      fun tn tokens -> inner fns tn tokens
+    in
+
+    let many fn =
+      let-rec inner
+        | fn a tn tokens = (
+          match !fn tn tokens with
+          | Some(tn, ret) -> inner fn (List.concat [a; [ret]]) tn tokens
+          | None -> (tn, a)
+        )
+      in
+      fun tn tokens -> inner fn [] tn tokens
+    in
+
+    let seq fns =
+      let-rec inner
+      | [] a tn tokens = Some(tn, a)
+      | (fn :: fns) a tn tokens = (
+        match !fn tn tokens with
+        | Some(tn, ret) -> inner fns (List.concat [a; [ret]]) tn tokens
+        | None -> None
+      )
+      in
+      fun tn tokens -> inner fns [] tn tokens
+    in
+
+    let default = (fun tn tokens -> None) in
+    let-mutable n <- 0 in
+    let-mutable cat <- default in
+    let-mutable char <- default in
+    let-mutable dot <- default in
+    let-mutable lparen <- default in
+    let-mutable rparen <- default in
+    let-mutable paren <- default in
+    let-mutable single <- default in
+
+    let () = cat <- (fun tn tokens -> (
+      match (many single) tn tokens with
+      | (tn, (head :: ns)) -> Some(tn, ns |> (List.fold-left (fun a n -> N-cat(a, n)) head))
+      | (tn, []) -> None
+    ))
+    in
+
+    let () = char <- (fun tn tokens -> (
+      match List.nth tn tokens with
+      | Some(T-char(c)) -> Some(tn + 1, N-lit(c))
+      | _ -> None
+    ))
+    in
+
+    let () = dot <- (fun tn tokens -> (
+      match List.nth tn tokens with
+      | Some(T-dot) -> Some(tn + 1, N-dot)
+      | _ -> None
+    ))
+    in
+
+    let () = lparen <- (fun tn tokens -> (
+      match List.nth tn tokens with
+      | Some(T-lparen) -> Some(tn + 1, N-empty)
+      | _ -> None
+    ))
+    in
+
+    let () = rparen <- (fun tn tokens -> (
+      match List.nth tn tokens with
+      | Some(T-rparen) -> Some(tn + 1, N-empty)
+      | _ -> None
+    ))
+    in
+
+    let () = paren <- (fun tn tokens -> (
+      match (seq [lparen; cat; rparen]) tn tokens with
+      | Some(tn, (head :: ns)) -> (
+        let () = n <- !n + 1 in
+        let t = ns |> (List.fold-left (fun a n -> N-cat(a, n)) head) in
+        Some(tn, N-paren(!n, t))
+      )
+      | _ -> None
+    ))
+    in
+
+    let () = single <- choice [paren; char; dot] in
+
+    match !cat 0 tokens with
+    | Some(tn, root) -> (
+      if tn == (List.length tokens) then
+        N-cat(N-ng-star(N-dot), N-paren(0, root))
+      else
+        N-parse-failed
+    )
 
   let parse tokens =
     let-mutable n <- 0 in
@@ -167,11 +273,17 @@ end = struct
 
   let from r =
     let tokens = lex r in
-    let root = parse tokens in
-    let bytecodes = compile root in
+    % let root = parse tokens in
+    % let bytecodes = compile root in
+    % (fun s2 -> (
+    %   % Some([(0, (inspect-bytecodes bytecodes))])
+    %   (exec bytecodes s2)
+    % ))
+    let root2 = parse2 tokens in
+    let bytecodes2 = compile root2 in
     (fun s2 -> (
-      % Some([(0, (inspect-ast root))])
-      % Some([(0, (inspect-bytecodes bytecodes))])
-      (exec bytecodes s2)
+      % Some([(0, (inspect-ast root2))])
+      % Some([(0, (inspect-bytecodes bytecodes2))])
+      (exec bytecodes2 s2)
     ))
 end
