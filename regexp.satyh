@@ -77,7 +77,7 @@ end = struct
       | [] a tn tokens = Some(tn, a)
       | (fn :: fns) a tn tokens = (
         match !fn tn tokens with
-        | Some(tn, ret) -> inner fns (List.concat [a; [ret]]) tn tokens
+        | Some(tn, ret) -> inner fns (List.concat [a; [[ret]]]) tn tokens
         | None -> None
       )
       in
@@ -133,7 +133,7 @@ end = struct
 
     let () = paren <- (fun tn tokens -> (
       match (seq [lparen; cat; rparen]) tn tokens with
-      | Some(tn, (head :: ns)) -> (
+      | Some(tn, (_ :: (head :: ns) :: _ :: [])) -> (
         let () = n <- !n + 1 in
         let t = ns |> (List.fold-left (fun a n -> N-cat(a, n)) head) in
         Some(tn, N-paren(!n, t))
