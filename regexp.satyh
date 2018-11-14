@@ -13,12 +13,14 @@ module Regexp : sig
   val from : string -> (string -> ((int * string) list) option)
 end = struct
   type token =
+    | T-alt
     | T-char of string
     | T-dot
     | T-lparen
     | T-rparen
 
   type node =
+    | N-alt of node * node
     | N-cat of node * node
     | N-dot
     | N-empty
@@ -40,6 +42,7 @@ end = struct
   let lex s =
     let-rec inner
       | [] = []
+      | (`|` :: cs) = T-alt :: inner cs
       | (`(` :: cs) = T-lparen :: inner cs
       | (`)` :: cs) = T-rparen :: inner cs
       | (`.` :: cs) = T-dot :: inner cs
@@ -105,13 +108,29 @@ end = struct
 
     let default = (fun tn tokens -> None) in
     let-mutable n <- 0 in
+    let-mutable alt <- default in
+    let-mutable alt2 <- default in
+    let-mutable alt-bar <- default in
     let-mutable cat <- default in
     let-mutable char <- default in
     let-mutable dot <- default in
+    let-mutable empty <- fun tn tokens -> Some(tn, N-empty) in
     let-mutable lparen <- default in
     let-mutable rparen <- default in
     let-mutable paren <- default in
     let-mutable single <- default in
+
+    let () = alt <- choice [alt2; cat; empty] in
+    let () = alt2 <- (fun tn tokens -> (
+      match (seq [cat; alt-bar; alt]) tn tokens with
+      | Some(tn, ((head1 :: ns1) :: _ :: (head2 :: ns2) :: [])) -> (
+        let t1 = ns1 |> (List.fold-left (fun a n -> N-cat(a, n)) head1) in
+        let t2 = ns2 |> (List.fold-left (fun a n -> N-cat(a, n)) head2) in
+        Some(tn, N-alt(t1, t2))
+      )
+      | _ -> None
+    ))
+    in
 
     let () = cat <- (fun tn tokens -> (
       match (many single) tn tokens with
@@ -127,12 +146,13 @@ end = struct
     ))
     in
 
+    let () = alt-bar <- map T-alt N-empty in
     let () = dot <- map T-dot N-dot in
     let () = lparen <- map T-lparen N-empty in
     let () = rparen <- map T-rparen N-empty in
 
     let () = paren <- (fun tn tokens -> (
-      match (seq [lparen; cat; rparen]) tn tokens with
+      match (seq [lparen; alt; rparen]) tn tokens with
       | Some(tn, (_ :: (head :: ns) :: _ :: [])) -> (
         let () = n <- !n + 1 in
         let t = ns |> (List.fold-left (fun a n -> N-cat(a, n)) head) in
@@ -144,7 +164,7 @@ end = struct
 
     let () = single <- choice [paren; char; dot] in
 
-    match !cat 0 tokens with
+    match !alt 0 tokens with
     | Some(tn, root) -> (
       if tn == (List.length tokens) then
         N-cat(N-ng-star(N-dot), N-paren(0, root))
@@ -188,6 +208,7 @@ end = struct
   let inspect-ast root =
     let-rec inner a n =
       match n with
+      | N-alt(t1, t2) -> a ^ `N-alt(` ^ (inner ` ` t1) ^ `, ` ^ (inner ` ` t2) ^ `)`
       | N-cat(t1, t2) -> a ^ `N-cat(` ^ (inner ` ` t1) ^ `, ` ^ (inner ` ` t2) ^ `)`
       | N-dot -> a ^ `N-dot`
       | N-empty -> a ^ `N-empty`
@@ -200,13 +221,31 @@ end = struct
   let compile ast =
     let-rec inner t bytecodes =
       match t with
+      | N-alt(l, r) -> (
+          let bsl = (inner l []) in
+          let bsr = (inner r []) in
+          let bsl-len = List.length(bsl) in
+          let bsr-len = List.length(bsr) in
+          List.concat [
+            bytecodes;
+            [O-split(1, bsl-len + 2)];
+            bsl;
+            [O-jump(bsr-len + 1)];
+            bsr
+          ]
+        )
       | N-cat(l, r) -> List.concat [bytecodes; (inner l []); (inner r [])]
       | N-dot -> List.append bytecodes [O-any]
       | N-empty -> List.append bytecodes []
       | N-lit(c) -> List.append bytecodes [O-char(c)]
       | N-ng-star(t) -> (
           let bs = (inner t []) in
-          List.concat [bytecodes; [O-split(List.length(bs) + 2, 1)]; bs; [O-jump(-List.length(bs) - 1)]]
+          List.concat [
+            bytecodes;
+            [O-split(List.length(bs) + 2, 1)];
+            bs;
+            [O-jump(-List.length(bs) - 1)]
+          ]
         )
       | N-paren(n, t) -> List.concat [bytecodes; [O-substart(n)]; (inner t []); [O-subend(n)]]
     in
