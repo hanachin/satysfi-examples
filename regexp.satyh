@@ -20,6 +20,7 @@ end = struct
     | T-rparen
     | T-star
     | T-plus
+    | T-question
 
   type node =
     | N-alt of node * node
@@ -32,6 +33,7 @@ end = struct
     | N-parse-failed
     | N-star of node
     | N-plus of node
+    | N-question of node
 
   type bytecode =
     | O-any
@@ -52,6 +54,7 @@ end = struct
       | (`.` :: cs) = T-dot :: inner cs
       | (`*` :: cs) = T-star :: inner cs
       | (`+` :: cs) = T-plus :: inner cs
+      | (`?` :: cs) = T-question :: inner cs
       | (c :: cs) = T-char(c) :: inner cs
     in
     inner (split-into-chars s)
@@ -119,6 +122,7 @@ end = struct
           match List.nth tn tokens with
             | Some(T-star) -> Some(tn + 1, N-star(n))
             | Some(T-plus) -> Some(tn + 1, N-plus(n))
+            | Some(T-question) -> Some(tn + 1, N-question(n))
             | _ -> Some(tn, n)
         )
         | None -> None
@@ -236,6 +240,7 @@ end = struct
       | N-paren(n, t) -> a ^ `N-paren(` ^ (arabic n) ^ `,` ^ (inner ` ` t) ^ `)`
       | N-star(t) -> a ^ `N-star(` ^ (inner ` ` t) ^ `)`
       | N-plus(t) -> a ^ `N-plus(` ^ (inner ` ` t) ^ `)`
+      | N-question(t) -> a ^ `N-question(` ^ (inner ` ` t) ^ `)`
     in
     inner ` ` root
 
@@ -286,6 +291,14 @@ end = struct
             [O-split(1, List.length(bs) + 2)];
             bs;
             [O-jump(-List.length(bs) - 1)]
+          ]
+        )
+      | N-question(t) -> (
+          let bs = inner t [] in
+          List.concat [
+            bytecodes;
+            [O-split(1, List.length(bs) + 1)];
+            bs
           ]
         )
 
