@@ -18,6 +18,7 @@ end = struct
     | T-dot
     | T-lparen
     | T-rparen
+    | T-star
 
   type node =
     | N-alt of node * node
@@ -28,6 +29,7 @@ end = struct
     | N-ng-star of node
     | N-paren of int * node
     | N-parse-failed
+    | N-star of node
 
   type bytecode =
     | O-any
@@ -46,6 +48,7 @@ end = struct
       | (`(` :: cs) = T-lparen :: inner cs
       | (`)` :: cs) = T-rparen :: inner cs
       | (`.` :: cs) = T-dot :: inner cs
+      | (`*` :: cs) = T-star :: inner cs
       | (c :: cs) = T-char(c) :: inner cs
     in
     inner (split-into-chars s)
@@ -106,6 +109,19 @@ end = struct
       )
     in
 
+    let starify fn =
+      fun tn tokens -> (
+        match fn tn tokens with
+        | Some(tn, ret) -> (
+          match (map T-star N-empty) tn tokens with
+          | Some(tn, _) -> Some(tn, N-star(ret))
+          | None -> Some(tn, ret)
+        )
+        | None -> None
+      )
+    in
+
+
     let default = (fun tn tokens -> None) in
     let-mutable n <- 0 in
     let-mutable alt <- default in
@@ -139,7 +155,7 @@ end = struct
     ))
     in
 
-    let () = char <- (fun tn tokens -> (
+    let () = char <- starify (fun tn tokens -> (
       match List.nth tn tokens with
       | Some(T-char(c)) -> Some(tn + 1, N-lit(c))
       | _ -> None
@@ -147,11 +163,11 @@ end = struct
     in
 
     let () = alt-bar <- map T-alt N-empty in
-    let () = dot <- map T-dot N-dot in
+    let () = dot <- starify (map T-dot N-dot) in
     let () = lparen <- map T-lparen N-empty in
     let () = rparen <- map T-rparen N-empty in
 
-    let () = paren <- (fun tn tokens -> (
+    let () = paren <- starify (fun tn tokens -> (
       match (seq [lparen; alt; rparen]) tn tokens with
       | Some(tn, (_ :: (head :: ns) :: _ :: [])) -> (
         let () = n <- !n + 1 in
@@ -215,6 +231,7 @@ end = struct
       | N-lit(c) -> a ^ `N-lit(` ^ c ^ `)`
       | N-ng-star(t) -> a ^ `N-ng-star(` ^ (inner ` ` t) ^ `)`
       | N-paren(n, t) -> a ^ `N-paren(` ^ (arabic n) ^ `,` ^ (inner ` ` t) ^ `)`
+      | N-star(t) -> a ^ `N-star(` ^ (inner ` ` t) ^ `)`
     in
     inner ` ` root
 
@@ -248,6 +265,16 @@ end = struct
           ]
         )
       | N-paren(n, t) -> List.concat [bytecodes; [O-substart(n)]; (inner t []); [O-subend(n)]]
+      | N-star(t) -> (
+          let bs = (inner t []) in
+          List.concat [
+            bytecodes;
+            [O-split(1, List.length(bs) + 2)];
+            bs;
+            [O-jump(-List.length(bs) - 1)]
+          ]
+        )
+
     in
     List.append (inner ast []) [O-match]
 
