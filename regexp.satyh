@@ -29,7 +29,7 @@ end = struct
     | N-empty
     | N-lit of string
     | N-ng-star of node
-    | N-paren of int * node
+    | N-paren of node
     | N-parse-failed
     | N-star of node
     | N-plus of node
@@ -130,7 +130,6 @@ end = struct
     in
 
     let default = (fun tn tokens -> None) in
-    let-mutable n <- 0 in
     let-mutable alt <- default in
     let-mutable alt2 <- default in
     let-mutable alt-bar <- default in
@@ -177,9 +176,8 @@ end = struct
     let () = paren <- quantifierize (fun tn tokens -> (
       match (seq [lparen; alt; rparen]) tn tokens with
       | Some(tn, (_ :: (head :: ns) :: _ :: [])) -> (
-        let () = n <- !n + 1 in
         let t = ns |> (List.fold-left (fun a n -> N-cat(a, n)) head) in
-        Some(tn, N-paren(!n, t))
+        Some(tn, N-paren(t))
       )
       | _ -> None
     ))
@@ -190,7 +188,7 @@ end = struct
     match !alt 0 tokens with
     | Some(tn, root) -> (
       if tn == (List.length tokens) then
-        N-cat(N-ng-star(N-dot), N-paren(0, root))
+        N-cat(N-ng-star(N-dot), N-paren(root))
       else
         N-parse-failed
     )
@@ -204,7 +202,7 @@ end = struct
       | N-empty -> a ^ `N-empty`
       | N-lit(c) -> a ^ `N-lit(` ^ c ^ `)`
       | N-ng-star(t) -> a ^ `N-ng-star(` ^ (inner ` ` t) ^ `)`
-      | N-paren(n, t) -> a ^ `N-paren(` ^ (arabic n) ^ `,` ^ (inner ` ` t) ^ `)`
+      | N-paren(t) -> a ^ `N-paren(` ^ (inner ` ` t) ^ `)`
       | N-star(t) -> a ^ `N-star(` ^ (inner ` ` t) ^ `)`
       | N-plus(t) -> a ^ `N-plus(` ^ (inner ` ` t) ^ `)`
       | N-question(t) -> a ^ `N-question(` ^ (inner ` ` t) ^ `)`
@@ -212,6 +210,7 @@ end = struct
     inner ` ` root
 
   let compile ast =
+    let-mutable nparen <- 0 in
     let-rec inner t bytecodes =
       match t with
       | N-alt(l, r) -> (
@@ -240,7 +239,16 @@ end = struct
             [O-jump(-List.length(bs) - 1)]
           ]
         )
-      | N-paren(n, t) -> List.concat [bytecodes; [O-substart(n)]; (inner t []); [O-subend(n)]]
+      | N-paren(t) -> (
+        let n = !nparen in
+        let () = nparen <- !nparen + 1 in
+        List.concat [
+          bytecodes;
+          [O-substart(n)];
+          (inner t []);
+          [O-subend(n)]
+        ]
+      )
       | N-star(t) -> (
           let bs = (inner t []) in
           List.concat [
