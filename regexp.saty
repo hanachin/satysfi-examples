@@ -1,0 +1,26 @@
+@require: stdja
+@import: regexp
+
+let-inline \example =
+  let regexp = Regexp.from `(x|y)+.*` in
+  let result =
+    match (regexp `xyxxyyzzzz`) with
+      | Some((pos, s) :: []) -> (arabic pos) ^ `:` ^ s
+      | Some(assoc) ->
+        assoc
+          |> List.map (fun (pos, s) -> (arabic pos) ^ `:` ^ s)
+          |> List.fold-left (fun acc s -> acc ^ s ^ `;`) ` `
+      | None -> `none`
+  in
+
+  (embed-string result)
+in
+
+document (|
+  author = { Seiei MIYAGI };
+  show-title = true;
+  show-toc = false;
+  title = { SATySFiで正規表現 }
+|) '<
+  +p { \example; }
+>
