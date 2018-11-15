@@ -59,7 +59,7 @@ end = struct
     in
     inner (split-into-chars s)
 
-  let parse2 tokens =
+  let parse tokens =
     let choice fns =
       let-rec inner
         | [] tn tokens = None
@@ -194,39 +194,6 @@ end = struct
       else
         N-parse-failed
     )
-
-  let parse tokens =
-    let-mutable n <- 0 in
-    let-rec take-while
-      | fn a [] = (a, [])
-      | fn a (x :: xs) = (
-        if (fn x) then (take-while fn (List.concat [a; [x]]) xs)
-        else (a, (x :: xs))
-      )
-    in
-    let-rec inner
-      | ((T-char(c)) :: []) = N-lit(c)
-      | ((T-char(c)) :: rest) = N-cat(N-lit(c), (inner rest))
-      | ((T-lparen) :: rest) = (
-        let (subpat, rest) = take-while (fun x -> (
-          match x with
-          | T-rparen -> false
-          | _ -> true
-        )) [] rest in
-        match rest with
-        | ((T-rparen) :: []) -> (
-          let () = n <- !n + 1 in
-          N-paren(!n, (inner subpat))
-        )
-        | ((T-rparen) :: rest) -> (
-          let () = n <- !n + 1 in
-          N-cat(N-paren(!n, (inner subpat)), (inner rest))
-        )
-      )
-      | [] = N-empty
-    in
-    let root = inner tokens in
-    N-cat(N-ng-star(N-dot), N-paren(0, root))
 
   let inspect-ast root =
     let-rec inner a n =
@@ -368,17 +335,11 @@ end = struct
 
   let from r =
     let tokens = lex r in
-    % let root = parse tokens in
-    % let bytecodes = compile root in
-    % (fun s2 -> (
-    %   % Some([(0, (inspect-bytecodes bytecodes))])
-    %   (exec bytecodes s2)
-    % ))
-    let root2 = parse2 tokens in
-    let bytecodes2 = compile root2 in
-    (fun s2 -> (
-      % Some([(0, (inspect-ast root2))])
-      % Some([(0, (inspect-bytecodes bytecodes2))])
-      (exec bytecodes2 s2)
+    let root = parse tokens in
+    let bytecodes = compile root in
+    (fun s -> (
+      % Some([(0, (inspect-ast root))])
+      % Some([(0, (inspect-bytecodes bytecodes))])
+      (exec bytecodes s)
     ))
 end
